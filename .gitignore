@@ -10,3 +10,10 @@ build/
 .coverage
 htmlcov/
 .DS_Store
+SPEC.md
+BACKLOG.md
+LEARNING.md
+QUOTAS.md
+corpus/documents/
+corpus/.converted/
+corpus/chunks.sqlite

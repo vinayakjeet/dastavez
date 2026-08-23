@@ -3,7 +3,7 @@
 # engineered around (see SPEC.md A5).
 services:
   - type: web
-    name: CHANGE-ME
+    name: dastavez
     runtime: python
     plan: free
     buildCommand: pip install uv && uv sync --frozen --no-dev

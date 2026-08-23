@@ -1,7 +1,7 @@
 [project]
-name = "ai-portfolio-template"
+name = "dastavez"
 version = "0.1.0"
-description = "Foundation template for the production-AI portfolio: FastAPI service skeleton + provider-agnostic llm/ client."
+description = "Agentic RAG over messy Indian government scheme documents, with page-anchored citations and an open eval set."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
@@ -12,10 +12,43 @@ dependencies = [
     "httpx>=0.27",
     "tenacity>=9.0",
     "pyyaml>=6.0",
-    "opentelemetry-sdk>=1.28",
-    "opentelemetry-exporter-otlp-proto-http>=1.28",
-    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    # No opentelemetry here. Spanlight declares the SDK and the OTLP exporter it
+    # needs, and nothing in this template imports otel directly.
+    "spanlight",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "openai>=3.3.1",
 ]
+
+# Ingestion is offline and the served API is not. Docling pulls torch, torchvision
+# and transformers, which is multiple gigabytes and minutes of build time, and the
+# deployed service never converts a PDF: it answers questions against chunks that
+# were written to Postgres on a laptop. Putting the ingestion stack in the default
+# dependency set would make every Render free-tier build install a machine learning
+# toolchain in order to serve a search endpoint.
+#
+# The split is also what keeps the converter ablation honest. Four converters are
+# four optional installs rather than four permanent dependencies, so a converter can
+# be added or dropped from the study without touching what gets deployed.
+[project.optional-dependencies]
+ingest = [
+    "docling>=2.0",
+    "sentence-transformers>=3.0",
+    "rank-bm25>=0.2",
+    "pypdf>=6.16.1",
+]
+
+# Every project in this portfolio is Spanlight-traced (QUALITY.md point 5), so the
+# chassis ships the dependency rather than making each fork add it.
+[tool.uv.sources]
+# Pinned to a revision, not to a branch. An unpinned git dependency means a build
+# today and a build next month can install different code while the lockfile and
+# the README both claim otherwise, which breaks the one thing this portfolio sells:
+# every number regenerating from a script. It is also the obvious supply-chain
+# exposure, since whatever lands on the default branch is what gets executed.
+#
+# Bump this deliberately, and re-run any published number that depends on tracing.
+spanlight = { git = "https://github.com/vinayakjeet/spanlight", rev = "abe44e2b90fa855cb8c7a9c5e9e3bdb97488237b" }
 
 [dependency-groups]
 dev = [
