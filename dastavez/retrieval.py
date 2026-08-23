@@ -182,7 +182,14 @@ class VectorIndex:
             )
         )
         if not rows:
-            return []
+            # An unembedded run and a run with no matches are different problems and
+            # returned the same empty list until this raised. The run_id format changed
+            # once, orphaning every embedding under the old key, and the only symptom
+            # was a retriever that quietly answered nothing for every query.
+            raise LookupError(
+                f"no embeddings for run {run_id!r} under model {embedder.model_name!r}. "
+                f"Run: uv run python -m dastavez.index_build --run {run_id}"
+            )
 
         with stage_span(spans.RETRIEVE_DENSE) as dense:
             matrix = np.vstack([np.frombuffer(r[2], dtype="float32") for r in rows])

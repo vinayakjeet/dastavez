@@ -84,6 +84,32 @@ def convert_cached(path: Path, converter: Converter, *, refresh: bool = False) -
     return blocks
 
 
+def strip_unmapped_glyphs(text: str) -> tuple[str, int]:
+    """Remove NULL bytes a converter emits where it could not map a glyph.
+
+    Measured on this corpus: pypdf produced 785 of them across two documents, and
+    `pmayu-ahp-sop` carried nulls in 61 of its 63 chunks. The cause is a ligature the
+    font maps to no Unicode codepoint, so "operation" arrives with a NULL byte where
+    the "ti" should be.
+
+    It is invisible in every normal view. A terminal renders NULL as nothing, so the
+    word reads as "operaon" and looks like a typo in the source document rather than a
+    defect in the extraction. It also made grep report the output as a binary file,
+    which is the only reason it got noticed at all.
+
+    It has to be removed before indexing, because a NULL inside a word produces a
+    token no query will ever match and an embedding of text that does not exist. It
+    cannot be repaired: which characters were dropped is not recoverable from what is
+    left, and guessing "ti" because it is usually "ti" would be inventing source text.
+
+    So the count is returned rather than swallowed. A high rate is a converter failing
+    on a document, which is exactly the signal the converter axis exists to expose,
+    and it belongs in the parsing-quality table rather than in a silent cleanup.
+    """
+    count = text.count(chr(0))
+    return (text.replace(chr(0), ""), count) if count else (text, 0)
+
+
 class PyPdfConverter:
     """The floor baseline, and it is not a strawman.
 
@@ -106,10 +132,21 @@ class PyPdfConverter:
         from pypdf import PdfReader
 
         found: list[Block] = []
+        unmapped = 0
         for number, page in enumerate(PdfReader(str(path)).pages, start=1):
-            text = (page.extract_text() or "").strip()
-            if text:
+            text, dropped = strip_unmapped_glyphs((page.extract_text() or "").strip())
+            unmapped += dropped
+            if text.strip():
                 found.append(Block(text=text, page=number, kind=None))
+        if unmapped:
+            logger.warning(
+                "convert.unmapped_glyphs",
+                extra={
+                    "document": path.stem,
+                    "converter": self.name,
+                    "count": unmapped,
+                },
+            )
         return found
 
 
@@ -161,6 +198,9 @@ class DoclingConverter:
                     "convert.block_without_page",
                     extra={"document": path.stem, "text": text[:60]},
                 )
+                continue
+            text, _ = strip_unmapped_glyphs(text)
+            if not text:
                 continue
             found.append(
                 Block(text=text, page=page, kind=type(item).__name__, level=level)

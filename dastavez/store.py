@@ -56,6 +56,25 @@ CREATE INDEX IF NOT EXISTS chunks_by_document ON chunks (run_id, document_id, pa
 
 class ChunkStore(Protocol):
     def start_run(self, run_id: str, **config: str) -> None: ...
+    def replace_document(self, run_id: str, document_id: str) -> int:
+        """Drop this document's chunks for this run before writing new ones.
+
+        Needed because writing is INSERT OR REPLACE keyed on ordinal, so a re-ingest
+        that produces fewer chunks than the previous one leaves the tail behind. That
+        happened: stripping unmapped glyphs took one configuration from 586 chunks to
+        584, and 21 null bytes survived in two orphaned rows that nothing had
+        overwritten.
+
+        A configuration whose chunk set silently mixes two versions of itself is the
+        precise failure an ablation cannot survive, because every number downstream is
+        attributed to a configuration that never existed.
+        """
+        cursor = self._connection.execute(
+            "DELETE FROM chunks WHERE run_id = ? AND document_id = ?", (run_id, document_id)
+        )
+        self._connection.commit()
+        return cursor.rowcount
+
     def write(self, run_id: str, chunks: Iterable[Chunk]) -> int: ...
     def read(self, run_id: str, document_id: str | None = None) -> Iterator[Chunk]: ...
 
@@ -88,6 +107,25 @@ class SqliteChunkStore:
             (run_id, *(config[c] for c in columns)),
         )
         self._connection.commit()
+
+    def replace_document(self, run_id: str, document_id: str) -> int:
+        """Drop this document's chunks for this run before writing new ones.
+
+        Needed because writing is INSERT OR REPLACE keyed on ordinal, so a re-ingest
+        that produces fewer chunks than the previous one leaves the tail behind. That
+        happened: stripping unmapped glyphs took one configuration from 586 chunks to
+        584, and 21 null bytes survived in two orphaned rows that nothing had
+        overwritten.
+
+        A configuration whose chunk set silently mixes two versions of itself is the
+        precise failure an ablation cannot survive, because every number downstream is
+        attributed to a configuration that never existed.
+        """
+        cursor = self._connection.execute(
+            "DELETE FROM chunks WHERE run_id = ? AND document_id = ?", (run_id, document_id)
+        )
+        self._connection.commit()
+        return cursor.rowcount
 
     def write(self, run_id: str, chunks: Iterable[Chunk]) -> int:
         rows = [

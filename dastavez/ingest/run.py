@@ -90,12 +90,14 @@ def ingest_document(
             )
 
         if not chunks:
+            store.replace_document(config.run_id, document_id)
             # An empty result is reported rather than skipped. For the floor converter
             # against a scanned document this is the correct and expected outcome, and
             # it is the population the OCR-cascade study is measured over. Silently
             # producing nothing is how that population becomes invisible.
             return 0, "no extractable text"
 
+        store.replace_document(config.run_id, document_id)
         store.write(config.run_id, chunks)
         pages = f"p{min(c.page for c in chunks)}-{max(c.end_page for c in chunks)}"
         return len(chunks), pages
