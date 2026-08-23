@@ -1,0 +1,174 @@
+# Documents the corpus is built from. Curated by hand from corpus/candidates.tsv,
+# which corpus/discover.py produces. Discovery finds what exists and confirms it is
+# really a PDF; choosing which documents belong is judgement and stays here.
+#
+# Four schemes, chosen because Vaani's fixtures already reference exactly these and
+# Vaani's SPEC already pins the tool contract this project implements. See SPEC.
+#
+# `kind` matters for the ablation. Guidelines are long and hierarchical. FAQs are
+# short and flat. Circulars amend the guidelines, and they are the reason an
+# eligibility answer depends on which document you read, which is what the multi-hop
+# question type in the eval set exists to test.
+
+schemes:
+  pm-kisan:
+    name_en: Pradhan Mantri Kisan Samman Nidhi
+    name_hi: "प्रधानमंत्री किसान सम्मान निधि"
+    documents:
+      - id: pmkisan-og-revised-en
+        url: https://pmkisan.gov.in/Documents/RevisedPM-KISANOperationalGuidelines(English).pdf
+        kind: guidelines
+        language: en
+      - id: pmkisan-og-original-en
+        url: https://pmkisan.gov.in/Documents/OPERATIONAL%20GUIDELINES.pdf
+        kind: guidelines
+        language: en
+      # The amendment and the two clarifications are the point. An eligibility answer
+      # that ignores them is wrong in a way no retrieval metric notices.
+      - id: pmkisan-og-amendment
+        url: https://pmkisan.gov.in/Documents/Amendment%20to%20OG-converted.pdf
+        kind: circular
+        language: en
+      - id: pmkisan-og-clarification
+        url: https://pmkisan.gov.in/Documents/clarification_on_OGs_of_PMKISAN.PDF
+        kind: circular
+        language: en
+      - id: pmkisan-clauses-clarification
+        url: https://pmkisan.gov.in/Documents/ClarificationsrelatingtoClauses.PDF
+        kind: circular
+        language: en
+      - id: pmkisan-faq-revised
+        url: https://pmkisan.gov.in/Documents/RevisedFAQ.pdf
+        kind: faq
+        language: en
+      - id: pmkisan-faq
+        url: https://pmkisan.gov.in/Documents/FAQPMKISAN.PDF
+        kind: faq
+        language: en
+      - id: pmkisan-faq-additional
+        url: https://pmkisan.gov.in/Documents/ADDITIONAL-FAQ-IN-RESPECTIVE-OF-THE-PM2.pdf
+        kind: faq
+        language: en
+      # A state-specific variant of the guidelines. Included deliberately: "does this
+      # rule apply in my state" is a real question and a real retrieval trap.
+      - id: pmkisan-og-manipur
+        url: https://pmkisan.gov.in/Documents/OperationalGuidelinesManipur.PDF
+        kind: guidelines
+        language: en
+      - id: pmkisan-aadhaar-seeding
+        url: https://pmkisan.gov.in/Documents/Aadhaar%20seeding%20of%20database%20of%20beneficiaries.pdf
+        kind: circular
+        language: en
+      - id: pmkisan-refund-mechanism
+        url: https://pmkisan.gov.in/Documents/PM%20Kisan%20Refund%20Mechanism.pdf
+        kind: circular
+        language: en
+      - id: pmkisan-grievance-mechanism
+        url: https://pmkisan.gov.in/Documents/SettingupofGrievanceMechanismbyStates.pdf
+        kind: circular
+        language: en
+
+      - id: pmkisan-scheme-document
+        url: https://pmkisan.gov.in/Documents/PMKisanSamanNidhi.PDF
+        kind: guidelines
+        language: en
+      - id: pmkisan-farmers-guide
+        url: https://pmkisan.gov.in/Documents/FTG.pdf
+        kind: guidelines
+        language: en
+      - id: pmkisan-npci-transfer
+        url: https://pmkisan.gov.in/Documents/Transfer%20of%20Benefits%20NPCI%2018%20feb%20(1).PDF
+        kind: circular
+        language: en
+      - id: pmkisan-reimbursement
+        url: https://pmkisan.gov.in/Documents/PMKisan-reimbursementofexpenses.pdf
+        kind: circular
+        language: en
+
+  pm-kmy:
+    name_en: Pradhan Mantri Kisan Maandhan Yojana
+    name_hi: "प्रधानमंत्री किसान मानधन योजना"
+    # Adjacent to PM-Kisan and cross-referenced by it: enrolment in one affects the
+    # other, which is a multi-hop eligibility question the corpus needs to be able to
+    # answer rather than a scheme added for volume.
+    documents:
+      - id: pmkmy-guidelines
+        url: https://pmkisan.gov.in/Documents/PM-KMY%20-%20Operational%20Guidelines.pdf
+        kind: guidelines
+        language: en
+      - id: pmkmy-faq
+        url: https://pmkisan.gov.in/Documents/PM-KMY%20-%20FAQs.pdf
+        kind: faq
+        language: en
+      - id: pmkmy-salient
+        url: https://pmkisan.gov.in/Documents/PM-KMY%20-%20Salient%20Features.pdf
+        kind: guidelines
+        language: en
+
+  pmay-u:
+    name_en: Pradhan Mantri Awas Yojana Urban
+    name_hi: "प्रधानमंत्री आवास योजना शहरी"
+    documents:
+      - id: pmayu-angikaar-guideline
+        url: https://pmay-urban.gov.in/uploads/Angikaar-guideline.pdf
+        kind: guidelines
+        language: en
+      - id: pmayu-angikaar-2026
+        url: https://pmay-urban.gov.in/uploads/Angikaar-2026-Guidelines.pdf
+        kind: guidelines
+        language: en
+      - id: pmayu-ahp-sop
+        url: https://pmay-urban.gov.in/uploads/guidelines/AHP-SOP.pdf
+        kind: guidelines
+        language: en
+      - id: pmayu-clap-manual
+        url: https://pmay-urban.gov.in/storage/pdf/CLAP_Manual_web.pdf
+        kind: guidelines
+        language: en
+      - id: pmayu-reform-booklet
+        url: https://pmay-urban.gov.in/storage/pdf/Reform-Booklet.pdf
+        kind: guidelines
+        language: en
+      - id: pmayu-angikaar-reference
+        url: https://pmay-urban.gov.in/assets/images/Reference_Guide_Angikaar_final.pdf
+        kind: guidelines
+        language: en
+
+  ujjwala:
+    name_en: Pradhan Mantri Ujjwala Yojana
+    name_hi: "प्रधानमंत्री उज्ज्वला योजना"
+    # The pmuy.gov.in document set is overwhelmingly forms rather than guidelines.
+    # What is taken is the subset that carries eligibility or procedural rules, plus
+    # the English and Hindi pairs, which are the only same-content-two-language pairs
+    # found anywhere in this corpus and are therefore worth more than their length.
+    documents:
+      - id: ujjwala-kyc-en
+        url: https://www.pmuy.gov.in/documents/Ujjwala-KYC_englishnew.pdf
+        kind: faq
+        language: en
+      - id: ujjwala-kyc-hi
+        url: https://www.pmuy.gov.in/documents/Ujjwala-KYC_hindinew.pdf
+        kind: faq
+        language: hi
+      - id: ujjwala-deprivation-en
+        url: https://www.pmuy.gov.in/documents/Deprivation_Declaration_for_Poor_Households_English.pdf
+        kind: faq
+        language: en
+      - id: ujjwala-deprivation-hi
+        url: https://www.pmuy.gov.in/documents/Deprivation_Declaration_for_Poor_Households_hindi.pdf
+        kind: faq
+        language: hi
+      - id: ujjwala-lpg-insurance
+        url: https://www.pmuy.gov.in/documents/Brief%20on%20Insurance%20Policy%20for%20LPG.pdf
+        kind: faq
+        language: en
+
+  # Ayushman Bharat PMJAY: nothing usable found on 2026-08-22. nha.gov.in exposed no
+  # PDF links from its landing pages and pmjay.gov.in did not resolve from here at
+  # all. Left empty on purpose rather than filled with a guess, and recorded in
+  # LEARNING.md. Whether this scheme stays in scope is a decision M0.1 has to make on
+  # evidence, not an omission to paper over.
+  ayushman-bharat:
+    name_en: Ayushman Bharat Pradhan Mantri Jan Arogya Yojana
+    name_hi: "आयुष्मान भारत प्रधानमंत्री जन आरोग्य योजना"
+    documents: []
