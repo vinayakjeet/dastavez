@@ -128,7 +128,8 @@ def test_mineru_maps_headings_tables_and_plain_text():
         {"type": "text", "text": "The scheme pays Rs 6000.", "page_idx": 0},
         {
             "type": "table",
-            "table_body": "<table><tr><td>Instalment</td></tr></table>",
+            "table_body": "<table><tr><td>Instalment</td><td>Amount</td></tr>"
+            "<tr><td>First</td><td>2000</td></tr></table>",
             "page_idx": 2,
         },
         {"type": "image", "img_path": "images/figure.jpg", "page_idx": 2},
@@ -141,8 +142,15 @@ def test_mineru_maps_headings_tables_and_plain_text():
         ("TextItem", None),
         ("TableItem", None),
     ]
-    assert "Instalment" in blocks[2].text
+    assert "| Instalment | Amount |" in blocks[2].text
+    assert "| First | 2000 |" in blocks[2].text
     assert "<" not in blocks[2].text
+
+
+def test_mineru_table_with_no_rows_is_no_table():
+    rows = [{"type": "table", "table_body": "<table></table>", "page_idx": 0}]
+
+    assert content_list_to_blocks(rows) == []
 
 
 def test_mineru_drops_an_entry_without_a_page_rather_than_guessing():

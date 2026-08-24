@@ -65,3 +65,26 @@ def test_absolutes_warn_rather_than_block(tmp_path):
     failures, warnings = _scan_one(tmp_path, "the gateway blocks prompt injection")
     assert failures == []
     assert warnings
+
+
+def test_gold_transcriptions_keep_source_dashes_but_not_credentials(
+    tmp_path, monkeypatch
+):
+    """Gold pages quote the corpus verbatim, dashes included.
+
+    The transcription is the ceiling every converter is measured against, so
+    normalising its punctuation to satisfy a style rule would corrupt the
+    measurement. The credential rule is deliberately not relaxed with it.
+    """
+    target = tmp_path / "corpus" / "gold" / "pages" / "sample.md"
+    target.parent.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    relative = Path("corpus/gold/pages/sample.md")
+    target.write_text("Pradhan Mantri Awas Yojana \u2013 Urban 2.0\n", encoding="utf-8")
+
+    failures, _ = check_conventions.scan([relative])
+    assert failures == []
+
+    target.write_text("GROQ_API_KEY=gsk_abcdefghijklmnopqrstuvwxyz012345\n", encoding="utf-8")
+    failures, _ = check_conventions.scan([relative])
+    assert failures

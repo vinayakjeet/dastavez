@@ -28,6 +28,12 @@ from pathlib import Path
 # real credential gets pasted "just for a minute".
 EXEMPT = {Path(__file__).name, "test_conventions.py"}
 
+# Verbatim transcriptions of corpus documents are data, not prose. The source
+# documents use en dashes and the transcription must not edit them, so the dash rule
+# does not apply there. Every other rule still does: a gold page is a fixture, which
+# is exactly where a real credential gets pasted "just for a minute".
+DATA_PROSE_RULES_EXEMPT = ("corpus/gold/",)
+
 TEXT_SUFFIXES = {
     ".py", ".md", ".txt", ".yml", ".yaml", ".toml", ".json", ".ts", ".tsx",
     ".js", ".jsx", ".css", ".html", ".sh", ".cfg", ".ini", ".sql",
@@ -86,10 +92,14 @@ def scan(paths: list[Path]) -> tuple[list[str], list[str]]:
         except (UnicodeDecodeError, OSError):
             continue
 
+        prose_exempt = any(
+            path.as_posix().startswith(prefix) for prefix in DATA_PROSE_RULES_EXEMPT
+        )
+
         for number, line in enumerate(lines, start=1):
             where = f"{path}:{number}"
 
-            if EM_DASH in line or EN_DASH in line:
+            if not prose_exempt and (EM_DASH in line or EN_DASH in line):
                 failures.append(
                     f"{where}: em or en dash. Use a comma, a colon, or split the sentence."
                 )

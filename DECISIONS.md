@@ -57,4 +57,23 @@ documented in the module docstring. The cache, not the environment, is the inter
 format, which also keeps converter versions pinned per cache entry rather than per
 machine state.
 
+## 2026-08-24: Gold transcriptions are data, so the dash rule does not apply to them
+
+**Context:** the corpus's own documents use en dashes ("Pradhan Mantri Awas Yojana
+– Urban 2.0"), and the gold transcription must reproduce them or it stops being a
+ceiling and becomes a paraphrase. The convention checker blocks en dashes in every
+tracked file, which would have forced exactly that paraphrase.
+
+**Decision:** the checker exempts `corpus/gold/` from the dash rule only. Every other
+rule, credentials above all, still applies to gold pages, because a fixture is where
+a real credential gets pasted "just for a minute".
+
+**Alternatives considered:** normalising dashes in the transcription (corrupts the
+measurement baseline); exempting all of `corpus/` (the manifest is prose-adjacent and
+loses nothing by being checked).
+
+**Consequences:** a test pins the asymmetry: a gold page may carry a source en dash
+and must still fail on a planted credential. New data directories need a deliberate
+decision like this one, not a quiet copy of the exemption.
+
 <!-- Add entries above this line. -->

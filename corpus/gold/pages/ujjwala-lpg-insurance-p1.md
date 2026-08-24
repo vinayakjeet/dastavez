@@ -1,0 +1,13 @@
+**Tata AIG General Insurance Company Ltd.**
+
+# Public Liability Insurance Policy – Special Purpose Policy Schedule
+
+| # | Field | Details |
+|---|---|---|
+| 1. | Policy No | Section I – 0304011815<br>Section II – 0304011816 |
+| 2. | Insured | 1. Indian Oil Corporation Limited<br>Indian Oil Bhawan Bandra (E), Mumbai – 400 051<br>2. Bharat Petroleum Corporation Limited<br>Bharat Bhavan, 4&6 Currimbhoy Road, Ballard Estate, Mumbai – 400 001<br>3. Hindustan Petroleum Corporation Limited<br>Hindustan Bhawan, Ballard Estate, Mumbai – 400 001 |
+| 3. | Policy Period | Effective date of Insurance Policy: 01 April 2026<br>Expiry date of Insurance Policy: 31 March 2027 |
+| 4. | Territorial Limit | ANYWHERE IN INDIA |
+| 5. | Jurisdiction Limit | INDIA |
+| 6. | Limit of Liability | INR 100 crores in aggregate for Section I, sub-limited to INR 25 crores in aggregate for Section II |
+| 7. | Details of Insurance | **SECTION I:**<br>The liability to pay compensation for loss of life, injury or damage in accordance with the law of the country awarded by the court of law, consumer forums, NHRC orders or orders from any statutory body, in connection with accidents attributed to LPG, provided such accident occur due to circumstances (situation of risk) covered below.<br>**Circumstances** (situation of risk):<br>1. Whilst the filled LPG cylinders are carried out of the bottling plant.<br>2. Whilst the filled LPG cylinders are in transit in the hands of approved transporters.<br>3. The policy will include the filled cylinders stored in the distributor's premises. The policy will also include cylinders stored at authorized retail outlets/ any authorized point of sales (POS) etc. The word 'authorized' shall mean having valid agreement/ MOU with LPG distributors/ Oil Marketing Companies.<br>4. Whilst the filled cylinders are in transit from Oil Marketing Companies/ distributor's premises to registered customer's premises/ by customer under cash and carry system. The movement will cover direct supplies of LPG cylinders/ Free – trade LPG (FTL) cylinders in transit to customer by distributor and indirect supplies through any authorized Point of Sales (POS) having valid agreement/MOU with LPG distributors/ Oil Marketing Companies etc; and/or whilst the filled and empty cylinders are in transit from registered customer/ by customer under cash and carry system, to the distributor's premises/ POS / concerned Oil Marketing Companies. The movement will also cover LPG cylinders/ Free – trade LPG (FTL) cylinders in transit from customer and indirect supplies through any authorized point of sale (POS) having valid agreement/ MOU with LPG distributors/ Oil Marketing Companies. |

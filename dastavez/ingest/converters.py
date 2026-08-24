@@ -96,6 +96,20 @@ def convert_cached(path: Path, converter: Converter, *, refresh: bool = False) -
     return blocks
 
 
+def cached_blocks(path: Path, converter: Converter) -> list[Block] | None:
+    """Cached blocks without converting, or None where the cache has no entry.
+
+    Reporting reads this and only this. A status script that starts a two hour
+    model load to fill in a missing arm is a status script that never finishes,
+    and an arm with no cached conversion is absent, not zero.
+    """
+    target = CACHE / cache_key(path, converter)
+    if not target.exists():
+        return None
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    return [Block(**block) for block in payload["blocks"]]
+
+
 def strip_unmapped_glyphs(text: str) -> tuple[str, int]:
     """Remove NULL bytes a converter emits where it could not map a glyph.
 
@@ -467,8 +481,10 @@ def content_list_to_blocks(rows: Iterable[dict]) -> list[Block]:
 
     Entries typed `image` are skipped: this project cites text against pages, and
     a picture path in the index would be a citation pointing at a file. Tables
-    arrive as HTML in `table_body`; the tags are stripped rather than kept because
-    markup tokens pollute lexical retrieval and no query contains them.
+    arrive as HTML in `table_body`; the tags become markdown row structure rather
+    than being stripped outright, because a table flattened to one line of
+    space-separated cells still retrieves but no longer has a row to score in the
+    parsing metrics, and the metrics are half of what this converter axis is for.
     """
     found: list[Block] = []
     for row in rows:
@@ -479,8 +495,7 @@ def content_list_to_blocks(rows: Iterable[dict]) -> list[Block]:
             continue
 
         if kind == "table":
-            body = re.sub(r"<[^>]+>", " ", str(row.get("table_body", "")))
-            text = re.sub(r"\s+", " ", body).strip()
+            text = html_table_to_markdown(str(row.get("table_body", "")))
             kind_name = "TableItem"
             level = None
         elif kind == "text":
@@ -494,6 +509,33 @@ def content_list_to_blocks(rows: Iterable[dict]) -> list[Block]:
         if text:
             found.append(Block(text=text, page=page + 1, kind=kind_name, level=level))
     return found
+
+
+def html_table_to_markdown(html: str) -> str:
+    """Rows of an HTML table as markdown pipes, in document order.
+
+    Tags and entities are dropped, cell text is kept. A table with no rows
+    returns an empty string, which the caller treats as no table rather than
+    inventing one.
+    """
+    rows: list[list[str]] = []
+    for raw_row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.IGNORECASE | re.DOTALL):
+        cells = [
+            re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", cell)).strip()
+            for cell in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", raw_row, re.IGNORECASE | re.DOTALL)
+        ]
+        if any(cells):
+            rows.append(cells)
+    if not rows:
+        return ""
+    width = max(len(row) for row in rows)
+    lines = []
+    for index, row in enumerate(rows):
+        padded = row + [""] * (width - len(row))
+        lines.append("| " + " | ".join(padded) + " |")
+        if index == 0:
+            lines.append("|" + "---|" * width)
+    return "\n".join(lines)
 
 
 def converters() -> Iterator[Converter]:

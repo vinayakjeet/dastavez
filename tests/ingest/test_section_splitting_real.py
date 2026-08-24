@@ -31,14 +31,14 @@ def cached_blocks(document: str, converter: str) -> list[Block] | None:
 
 @pytest.fixture(scope="module")
 def docling_blocks() -> list[Block]:
-    blocks = cached_blocks(DOCUMENT, "docling")
+    converted = cached_blocks(DOCUMENT, "docling")
     reason = (
         f"no {DOCUMENT} conversion cached; run "
         f"`uv run python -m dastavez.ingest.run --converter docling-noocr --document {DOCUMENT}`"
     )
-    if blocks is None:
+    if converted is None:
         pytest.skip(reason)
-    return blocks
+    return converted
 
 
 def test_the_converter_actually_labels_tables(docling_blocks):
