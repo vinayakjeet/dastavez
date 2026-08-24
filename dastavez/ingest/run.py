@@ -23,6 +23,8 @@ from dastavez.ingest.chunking import SPLITTERS
 from dastavez.ingest.cleaning import CLEANERS
 from dastavez.ingest.converters import (
     DoclingConverter,
+    MarkerConverter,
+    MinerUConverter,
     PyPdfConverter,
     RoutedDoclingConverter,
     convert_cached,
@@ -38,6 +40,8 @@ BUILDERS = {
     "docling": lambda: DoclingConverter(ocr=True),
     "docling-noocr": lambda: DoclingConverter(ocr=False),
     "docling-routed": RoutedDoclingConverter,
+    "marker": MarkerConverter,
+    "mineru": MinerUConverter,
 }
 
 

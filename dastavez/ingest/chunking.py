@@ -20,9 +20,13 @@ from dastavez.chunks import Block, Chunk
 TARGET_CHARS = 1200
 OVERLAP_CHARS = 150
 
-# Docling's own type names for blocks that open a section. Used by the
-# section-respecting splitter to decide where a chunk may not be cut.
+# The shared block vocabulary, keyed by Docling's names because that converter set
+# it first. Marker and MinerU map their own type names onto these in converters.py,
+# so the section-respecting splitter means the same thing over every arm. A splitter
+# keyed to one converter's vocabulary would silently disable structure-aware
+# chunking for the rest and report the difference as a converter effect.
 HEADING_KINDS = frozenset({"SectionHeaderItem", "TitleItem"})
+TABLE_KINDS = frozenset({"TableItem"})
 
 
 def fixed_size(document_id: str, blocks: Iterable[Block]) -> Iterator[Chunk]:
@@ -76,7 +80,7 @@ def _divide(block: Block, *, respect_sections: bool) -> list[Block]:
     # header row in one chunk and the numbers in another, and naive fixed-size
     # splitting is exactly the strategy that does that. Making both arms protect
     # tables would delete the contrast the study is trying to measure.
-    if respect_sections and block.kind == "TableItem":
+    if respect_sections and block.kind in TABLE_KINDS:
         return [block]
 
     pieces: list[str] = []
@@ -130,7 +134,7 @@ def _pack(document_id: str, blocks: list[Block], *, respect_sections: bool) -> I
     divided = [p for b in blocks for p in _divide(b, respect_sections=respect_sections)]
     for block in divided:
         opens_section = respect_sections and block.kind in HEADING_KINDS
-        is_table = block.kind == "TableItem"
+        is_table = block.kind in TABLE_KINDS
 
         if opens_section and buffer:
             yield from flush()

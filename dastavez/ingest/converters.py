@@ -19,6 +19,14 @@ The cache key is the document's content hash plus the converter's identity and
 version. It is deliberately not the file path: two runs against a document that
 changed underneath them must not silently share a cache entry, and the corpus
 manifest already records exactly this hash.
+
+Marker and MinerU do not install into the same environment as Docling: their
+dependency trees pin torch and transformers against each other, and resolving all
+four together produces an environment where none of them behaves as it does alone.
+So each heavy converter converts from its own environment and writes into this
+shared cache, which is what `dastavez.offline_convert` drives. The served service
+and the tests never import either library; everything downstream of a conversion
+reads blocks that are indistinguishable by origin.
 """
 
 from __future__ import annotations
@@ -26,9 +34,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
+import shutil
+import subprocess
+import tempfile
 import time
-from collections.abc import Iterator
-from dataclasses import asdict
+from collections.abc import Iterable, Iterator
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -184,28 +196,7 @@ class DoclingConverter:
             self._converter = self._build()
 
         document = self._converter.convert(str(path)).document
-        found: list[Block] = []
-        for item, level in document.iterate_items():
-            text = (getattr(item, "text", "") or "").strip()
-            if not text:
-                continue
-            page = _page_of(item)
-            if page is None:
-                # A block whose page cannot be recovered is dropped, loudly. Keeping
-                # it would put text in the index that no citation can ever point at,
-                # which is worse than a retrieval miss because it looks like success.
-                logger.warning(
-                    "convert.block_without_page",
-                    extra={"document": path.stem, "text": text[:60]},
-                )
-                continue
-            text, _ = strip_unmapped_glyphs(text)
-            if not text:
-                continue
-            found.append(
-                Block(text=text, page=page, kind=type(item).__name__, level=level)
-            )
-        return found
+        return docling_items_to_blocks(document.iterate_items(), document, document_id=path.stem)
 
 
 def _page_of(item: object) -> int | None:
@@ -215,6 +206,63 @@ def _page_of(item: object) -> int | None:
         if isinstance(number, int) and number >= 1:
             return number
     return None
+
+
+def docling_items_to_blocks(
+    items: Iterable[tuple[object, int | None]], document: object, *, document_id: str
+) -> list[Block]:
+    """Blocks from `(item, level)` pairs, whatever Docling yielded them from.
+
+    Split out from `DoclingConverter` so the table rule is testable without loading
+    the models. Tables carry no `.text` attribute at all; their content lives in the
+    grid and reaches text only through export. A converter loop that reads `.text`
+    alone therefore drops every table in the corpus silently, which is what this
+    code did between M0.2 and M1.2, and why the kind vocabulary the splitters key
+    on never contained a real TableItem until it was fixed.
+    """
+    found: list[Block] = []
+    for item, level in items:
+        page = _page_of(item)
+        if page is None:
+            # A block whose page cannot be recovered is dropped, loudly. Keeping
+            # it would put text in the index that no citation can ever point at,
+            # which is worse than a retrieval miss because it looks like success.
+            logger.warning(
+                "convert.block_without_page",
+                extra={"document": document_id, "text": _preview(item)},
+            )
+            continue
+        text = _docling_text(item, document)
+        if not text:
+            continue
+        text, _ = strip_unmapped_glyphs(text)
+        if not text:
+            continue
+        found.append(Block(text=text, page=page, kind=type(item).__name__, level=level))
+    return found
+
+
+def _preview(item: object) -> str:
+    return ((getattr(item, "text", "") or "")[:60]).strip()
+
+
+def _docling_text(item: object, document: object) -> str:
+    """Text of one Docling item, exporting tables through their markdown form.
+
+    The export needs the document root for its hyperlink resolution, which is why
+    it is carried alongside the items rather than read off each item alone.
+    """
+    text = (getattr(item, "text", "") or "").strip()
+    if text:
+        return text
+    export = getattr(item, "export_to_markdown", None)
+    if export is None or not hasattr(item, "data"):
+        return ""
+    try:
+        return (export(document) or "").strip()
+    except Exception:
+        logger.exception("convert.table_export_failed")
+        return ""
 
 
 class RoutedDoclingConverter:
@@ -263,14 +311,203 @@ class RoutedDoclingConverter:
         return chosen.blocks(path)
 
 
-def converters() -> Iterator[Converter]:
-    """Everything the ablation can vary along the converter axis, today.
+class MarkerConverter:
+    """Marker: deep-learning layout and OCR, tuned for PDFs to markdown.
 
-    MinerU and Marker join this list at M1.2. They are absent rather than stubbed,
-    because a stub that returns nothing is indistinguishable in a results table from
-    a converter that failed.
+    It runs its own model stack on every page whether the page needs it or not,
+    which is what makes it the expensive arm rather than a variant of Docling.
+    Its native block tree nests lines and spans inside every text block, so taking
+    `children` whole would index every sentence several times over; only leaf
+    content types are taken and containers are left to their children.
+
+    Marker labels headings and tables with its own type names. The blocks carry
+    Docling's names instead, because the splitting axis keys on kinds, and a
+    splitter keyed to one converter's vocabulary quietly disables structure-aware
+    chunking for every other converter. The vocabulary is shared infrastructure,
+    like the chunk type itself.
+    """
+
+    name = "marker"
+    version = "2.0.0"
+
+    # Marker type name to the shared vocabulary. Types absent here are containers
+    # (lines, spans, groups) whose content arrives through their parents.
+    KINDS = {
+        "SectionHeader": "SectionHeaderItem",
+        "Text": "TextItem",
+        "ListItem": "ListItem",
+        "Table": "TableItem",
+        "Caption": "CaptionItem",
+        "Footnote": "FootnoteItem",
+    }
+
+    def __init__(self) -> None:
+        self._converter = None
+
+    def _build(self):
+        from marker.converters.pdf import PdfConverter
+        from marker.models import create_model_dict
+
+        return PdfConverter(artifact_dict=create_model_dict())
+
+    def blocks(self, path: Path) -> list[Block]:
+        if self._converter is None:
+            self._converter = self._build()
+
+        document = self._converter.build_document(str(path))
+        found: list[Block] = []
+        for block in marker_document_to_blocks(document):
+            text, _ = strip_unmapped_glyphs(block.text)
+            if not text:
+                continue
+            found.append(replace(block, text=text))
+        return found
+
+
+def marker_document_to_blocks(document: object) -> list[Block]:
+    """Blocks from a Marker document object, testable without Marker installed.
+
+    Marker's `raw_text` needs the document root to resolve its own block ids, so
+    the pages are walked with it carried along. A page id of zero is the first
+    page in every Marker schema this was checked against, and Block pages are one
+    based, which is why the increment happens here rather than at the caller.
+    """
+    kinds = MarkerConverter.KINDS
+    found: list[Block] = []
+    for page in getattr(document, "pages", []):
+        for item in getattr(page, "children", []):
+            kind = kinds.get(str(getattr(item, "block_type", "")).split(".")[-1])
+            if kind is None:
+                continue
+            text = str(item.raw_text(document) or "").strip()
+            if not text:
+                continue
+            found.append(Block(text=text, page=item.page_id + 1, kind=kind))
+    return found
+
+
+class MinerUConverter:
+    """MinerU: layout analysis plus OCR, built for scanned and mixed documents.
+
+    The pipeline backend runs per-page layout detection, then OCR where the text
+    layer does not carry the page. It writes its results as files, including a
+    content list whose entries name their own page, so the adapter drives the
+    installed command rather than private internals: MinerU's Python surface has
+    been rewritten between minor versions, and the content list is the only part
+    of it documented as an output contract.
+
+    Like Marker's, its output kinds are mapped onto the shared vocabulary.
+    """
+
+    name = "mineru"
+    version = "3.4.5"
+
+    def blocks(self, path: Path) -> list[Block]:
+        executable = shutil.which("mineru")
+        if executable is None:
+            raise RuntimeError(
+                f"{self.name} is not installed in this environment; convert through "
+                "its own environment with python -m dastavez.offline_convert"
+            )
+
+        with tempfile.TemporaryDirectory(prefix="dastavez-mineru-") as out:
+            completed = subprocess.run(
+                [
+                    executable,
+                    "-p", str(path),
+                    "-o", out,
+                    "-b", "pipeline",
+                    "-m", "auto",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3600,
+            )
+            if completed.returncode != 0:
+                raise RuntimeError(
+                    f"mineru failed on {path.stem} ({completed.returncode}): "
+                    f"{completed.stderr[-2000:]}"
+                )
+            rows = _mineru_content_list(Path(out))
+            if rows is None:
+                raise RuntimeError(f"mineru wrote no content list for {path.stem}")
+
+        unmapped = 0
+        found: list[Block] = []
+        for block in content_list_to_blocks(rows):
+            text, dropped = strip_unmapped_glyphs(block.text)
+            unmapped += dropped
+            if not text:
+                continue
+            found.append(replace(block, text=text))
+        if unmapped:
+            logger.warning(
+                "convert.unmapped_glyphs",
+                extra={"document": path.stem, "converter": self.name, "count": unmapped},
+            )
+        return found
+
+
+def _mineru_content_list(out_dir: Path) -> list[dict] | None:
+    """The one content list under the run directory, however MinerU nested it."""
+    candidates = sorted(out_dir.rglob("*_content_list.json"))
+    candidates = [c for c in candidates if "v2" not in c.stem]
+    for candidate in candidates:
+        try:
+            rows = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+    return None
+
+
+def content_list_to_blocks(rows: Iterable[dict]) -> list[Block]:
+    """Blocks from a MinerU content list, testable without MinerU installed.
+
+    Entries typed `image` are skipped: this project cites text against pages, and
+    a picture path in the index would be a citation pointing at a file. Tables
+    arrive as HTML in `table_body`; the tags are stripped rather than kept because
+    markup tokens pollute lexical retrieval and no query contains them.
+    """
+    found: list[Block] = []
+    for row in rows:
+        kind = row.get("type")
+        page = row.get("page_idx")
+        if not isinstance(page, int) or page < 0:
+            logger.warning("convert.block_without_page", extra={"type": kind})
+            continue
+
+        if kind == "table":
+            body = re.sub(r"<[^>]+>", " ", str(row.get("table_body", "")))
+            text = re.sub(r"\s+", " ", body).strip()
+            kind_name = "TableItem"
+            level = None
+        elif kind == "text":
+            text = str(row.get("text", "")).strip()
+            raw_level = row.get("text_level")
+            level = int(raw_level) if isinstance(raw_level, (int, float)) else None
+            kind_name = "SectionHeaderItem" if level is not None else "TextItem"
+        else:
+            continue
+
+        if text:
+            found.append(Block(text=text, page=page + 1, kind=kind_name, level=level))
+    return found
+
+
+def converters() -> Iterator[Converter]:
+    """Everything the ablation can vary along the converter axis.
+
+    Marker and MinerU need an environment of their own (see the module docstring).
+    Against this environment they read the cache written by
+    `python -m dastavez.offline_convert`, and they say so when asked to convert
+    live without their dependency. They are never stubbed: a stub that returns
+    nothing is indistinguishable in a results table from a converter that failed.
     """
     yield PyPdfConverter()
     yield DoclingConverter(ocr=True)
     yield DoclingConverter(ocr=False)
     yield RoutedDoclingConverter()
+    yield MarkerConverter()
+    yield MinerUConverter()

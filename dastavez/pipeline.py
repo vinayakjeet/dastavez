@@ -19,7 +19,7 @@ import json
 from dataclasses import asdict, dataclass
 from itertools import product
 
-CONVERTERS = ("pypdf", "docling", "docling-noocr", "docling-routed")
+CONVERTERS = ("pypdf", "docling", "docling-noocr", "docling-routed", "marker", "mineru")
 CLEANINGS = ("none", "strip")
 SPLITTERS = ("fixed", "section")
 METADATA = ("none", "enriched")
@@ -58,10 +58,10 @@ class PipelineConfig:
 def matrix() -> list[PipelineConfig]:
     """Every configuration the ablation covers.
 
-    Four converters times two cleanings times two splitters times two metadata
-    settings is thirty-two. Only the converter axis costs a conversion pass, because
-    the other three transform blocks a converter already produced, so the whole matrix
-    costs four conversions rather than thirty-two.
+    Six converters times two cleanings times two splitters times two metadata
+    settings is ninety-six. Only the converter axis costs a conversion pass, because
+    the other three transform blocks a converter already produced, so the whole
+    matrix costs six conversions.
     """
     return [
         PipelineConfig(converter=c, cleaning=cl, splitter=s, metadata=m)
