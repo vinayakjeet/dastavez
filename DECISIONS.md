@@ -59,10 +59,11 @@ machine state.
 
 ## 2026-08-24: Gold transcriptions are data, so the dash rule does not apply to them
 
-**Context:** the corpus's own documents use en dashes ("Pradhan Mantri Awas Yojana
-– Urban 2.0"), and the gold transcription must reproduce them or it stops being a
-ceiling and becomes a paraphrase. The convention checker blocks en dashes in every
-tracked file, which would have forced exactly that paraphrase.
+**Context:** the corpus's own documents use en dashes, as in the scheme name
+"Pradhan Mantri Awas Yojana U+2013 Urban 2.0", which carries the literal character
+where this line can only name it. The gold transcription must reproduce them or it
+stops being a ceiling and becomes a paraphrase. The convention checker blocks en
+dashes in every tracked file, which would have forced exactly that paraphrase.
 
 **Decision:** the checker exempts `corpus/gold/` from the dash rule only. Every other
 rule, credentials above all, still applies to gold pages, because a fixture is where
