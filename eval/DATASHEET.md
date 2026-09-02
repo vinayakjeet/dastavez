@@ -13,7 +13,11 @@ changes when a question, an answer or a citation changes.
 ## Who wrote it
 
 Drafted by `claude-opus-5` on 2026-08-31, recorded as `annotator_ids` on every
-row. **These are drafts, not adjudicated labels.** No human has verified them yet.
+row, and audited on 2026-09-02 by a second annotator of a different model family.
+**No human has read all 150.** The audit found no label error in the 30 it
+checked, and the adjudication of its six disagreements was performed by the same
+party that drafted the set, which is a real weakening: an independent adjudicator
+might resolve some of them the other way.
 
 That distinction is the whole reason this file says so in its second paragraph.
 The two text-to-SQL benchmarks this project's brief cites measured annotation
@@ -22,12 +26,79 @@ corrected labels moved them by up to nine ranks. A model-authored gold answer is
 exactly the kind of label that looks right and is not, and a set that hides its
 provenance invites the reader to trust it more than it deserves.
 
-M4.3 and M4.4 are the audit that measures how wrong this is: a second annotator of
-a different model family on a 30-question subset, hand adjudication of the
-disagreements, then Cohen's kappa with its Landis-Koch band and an estimated label
-error rate for the full 150. **Until that runs, no accuracy number measured on
-this set means anything**, because the error bar on the labels is unknown and
-could be larger than any difference between two pipeline configurations.
+M4.3 and M4.4 are that audit, and they have now run. The results are in the next
+section. The short version is that the audit found no label error and instead
+found something else, which is the usual way of these things.
+
+What the audit does not license is treating the labels as verified. Thirty of 150
+were checked by a second annotator and none of the remaining 120 were, so the
+error bar on this set is "no errors seen in a fifth of it" rather than "no
+errors". A pipeline difference smaller than that uncertainty is not a difference.
+
+## The label audit, 2026-09-02
+
+**Second annotator:** `gemini-3.6-flash`, a different model family from the
+drafter, on a seeded stratified subset of 30 of the 150.
+
+| | |
+|---|---|
+| Raw agreement | 80.0% |
+| Chance agreement | 58.9% |
+| **Cohen's kappa** | **0.514**, moderate on the Landis-Koch bands |
+| Disagreements | 6 of 30 |
+
+**The label is answerability, not the gold answer.** Showing the second annotator
+the gold answer and asking whether the page supports it produces no usable kappa:
+the drafter's side of the table has no variance, so chance agreement is total and
+the statistic collapses. Answerability is assigned with real variance by both
+annotators, and it is the label that matters most, since an unanswerable question
+that is actually answerable poisons the refusal slice.
+
+### Every one of the six disagreements was a retrieval miss, not a label error
+
+Adjudicated by opening each cited page and checking it contains the claim. **All
+six citations hold.** The second annotator said "not answerable" because BM25 had
+handed it the wrong passages, not because the gold answer was wrong.
+
+So the audited label error rate is **0 of 30**, and the 20% disagreement rate
+measures the retrieval layer rather than the labels. Reporting it as a label error
+rate, which is what the number looks like at first glance, would have been wrong
+in the direction that flatters nobody: it would understate the eval set and
+mislead about where the problem is.
+
+### The retrieval miss has a language
+
+| Question language | Retrieval misses on the audited 30 |
+|---|---|
+| `hi` | 3 of 5 (60%) |
+| `en` | 3 of 20 (15%) |
+| `hinglish` | 0 of 5 (0%) |
+
+BM25 misses Devanagari questions four times more often than English ones. Five
+Hindi questions is a small sample and the rate is not a precise number, but the
+direction matches what this corpus already shows elsewhere: pypdf recovers almost
+nothing from Devanagari pages, so the lexical index has little to match against.
+This is the OCR-cascade problem arriving in the retrieval layer.
+
+**Reproduce:** `uv run python scripts/second_annotator.py --n 30 --report`
+
+## Citation support, checked mechanically across all 150
+
+`scripts/check_citations.py` checks whether the numbers a gold answer asserts
+appear on the page it cites. Of the 123 answerable questions, 46 carry a checkable
+numeric claim and **45 of those hold**.
+
+The one failure is `dz-064`, whose answer states a difference of Rs. 145 between
+entry ages 40 and 18. The page states Rs. 200 and Rs. 55; the difference is
+arithmetic the reader performs. It is left flagged rather than special-cased,
+because a citation check that silently accepts derived numbers accepts a great
+deal else besides.
+
+The first version of this check reported eight failures. Five were the date
+`1.6.2019`, which `pmkisan-faq-revised` page 1 carries as "1 .6.2019" with a space
+that pypdf inserted, and two were numbers the question supplied rather than claims
+the page had to support. Both are now handled, and both are the reason a checker
+built over damaged extractions has to be told what damage looks like.
 
 ## What is in it
 
